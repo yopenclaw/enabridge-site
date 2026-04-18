@@ -1,0 +1,31 @@
+{
+  "date": "26-04-18",
+  "iso_date": "2026-04-18T07:00:00+07:00",
+  "title": "Daily AI Brief — 26-04-18",
+  "items": [
+    {
+      "file": "26-04-18-001-cloudflare-code-mode-mcp.md",
+      "title": "Cloudflare ลด token ของ MCP ลง 99.9% — จาก 1.17M เหลือ ~1,000",
+      "order": 1
+    },
+    {
+      "file": "26-04-18-002-pinterest-mcp-production.md",
+      "title": "Pinterest เอา MCP ขึ้น production — agent ช่วย engineer ประหยัดหลายพันชั่วโมง/เดือน",
+      "order": 2
+    },
+    {
+      "file": "26-04-18-003-microsoft-agent-365.md",
+      "title": "Microsoft Agent 365 — \"control plane\" สำหรับ enterprise agents, launch 1 พ.ค.",
+      "order": 3
+    },
+    {
+      "file": "26-04-18-004-distyl-175m-ai-native.md",
+      "title": "Distyl AI ระดม $175M ที่ valuation $1.8B — ช่วย Fortune 500 กลายเป็น \"AI-native\"",
+      "order": 4
+    }
+  ],
+  "script_char_count": 2973,
+  "audio_file": "26-04-18.mp3",
+  "voice": "nova",
+  "model": "tts-1-hd"
+}
