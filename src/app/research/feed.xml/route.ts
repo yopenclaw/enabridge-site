@@ -1,13 +1,15 @@
-import { readdir, readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
 import { NextResponse } from "next/server";
 
 /**
  * Private podcast feed for Enabridge Daily AI Brief.
  *
- * Reads audio files + metadata from public/research/audio/:
- *   YY-MM-DD.mp3   — episode audio
- *   YY-MM-DD.json  — episode metadata (from scripts/tts.py)
+ * Reads episode metadata from the enabridge-research repo on GitHub via the
+ * raw.githubusercontent.com CDN. The research repo's cron updates
+ * audio/index.json + audio/YY-MM-DD.mp3 every morning; this route just
+ * reflects that into an RSS feed.
+ *
+ * Set GITHUB_OWNER / GITHUB_REPO / GITHUB_BRANCH in the enabridge-site
+ * environment (defaults below assume repo name `enabridge-research`, branch `main`).
  *
  * Subscribe in Apple Podcasts / Spotify / Overcast:
  *   https://enabridge.ai/research/feed.xml
@@ -21,15 +23,29 @@ const AUTHOR = "Yoh / Enabridge";
 const FEED_LANGUAGE = "th-TH";
 const FEED_CATEGORY = "Technology";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 300; // 5 minutes
+const GH_OWNER = process.env.GITHUB_OWNER ?? "enabridge";
+const GH_REPO = process.env.GITHUB_REPO ?? "enabridge-research";
+const GH_BRANCH = process.env.GITHUB_BRANCH ?? "main";
+const RAW_BASE = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}`;
+
+// Cache the feed for 5 min (ISR). Podcast clients typically poll every 30-60 min,
+// so this stays well under GitHub's raw.githubusercontent abuse limits.
+export const revalidate = 300;
 
 type EpisodeMeta = {
   date: string;
   iso_date: string;
   title: string;
+  description?: string;
   items: { file: string; title: string; order: number }[];
   audio_file: string;
+  audio_size_bytes: number;
+};
+
+type Index = {
+  generated_at: string;
+  count: number;
+  episodes: EpisodeMeta[];
 };
 
 function xmlEscape(s: string): string {
@@ -45,52 +61,40 @@ function pubDate(iso: string): string {
   return new Date(iso).toUTCString();
 }
 
-async function listEpisodes(): Promise<Array<EpisodeMeta & { size: number }>> {
-  const audioDir = join(process.cwd(), "public", "research", "audio");
-  let files: string[];
+async function fetchIndex(): Promise<Index | null> {
   try {
-    files = await readdir(audioDir);
-  } catch {
-    return [];
-  }
-
-  const metaFiles = files.filter((f) => f.endsWith(".json"));
-  const episodes: Array<EpisodeMeta & { size: number }> = [];
-  for (const mf of metaFiles) {
-    try {
-      const raw = await readFile(join(audioDir, mf), "utf-8");
-      const meta = JSON.parse(raw) as EpisodeMeta;
-      const mp3Path = join(audioDir, meta.audio_file);
-      const s = await stat(mp3Path).catch(() => null);
-      if (!s) continue;
-      episodes.push({ ...meta, size: s.size });
-    } catch {
-      // skip malformed meta
+    const res = await fetch(`${RAW_BASE}/audio/index.json`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) {
+      console.error(`[feed] index.json fetch failed: HTTP ${res.status}`);
+      return null;
     }
+    return (await res.json()) as Index;
+  } catch (e) {
+    console.error("[feed] index.json fetch error:", e);
+    return null;
   }
-  // newest first
-  episodes.sort((a, b) => b.iso_date.localeCompare(a.iso_date));
-  return episodes;
 }
 
 export async function GET() {
-  const episodes = await listEpisodes();
+  const index = await fetchIndex();
+  const episodes = index?.episodes ?? [];
   const lastBuildDate = new Date().toUTCString();
 
   const itemsXml = episodes
     .map((ep) => {
-      const audioUrl = `${BASE_URL}/research/audio/${ep.audio_file}`;
+      const audioUrl = `${RAW_BASE}/audio/${ep.audio_file}`;
       const description =
-        ep.items
-          .map((i) => `${i.order}. ${i.title}`)
-          .join(" · ") || ep.title;
+        ep.description ||
+        ep.items.map((i) => `${i.order}. ${i.title}`).join(" · ") ||
+        ep.title;
       return `    <item>
       <title>${xmlEscape(ep.title)}</title>
       <description>${xmlEscape(description)}</description>
       <pubDate>${pubDate(ep.iso_date)}</pubDate>
       <guid isPermaLink="false">enabridge-research-${ep.date}</guid>
-      <enclosure url="${audioUrl}" length="${ep.size}" type="audio/mpeg" />
-      <itunes:duration>00:00:00</itunes:duration>
+      <enclosure url="${audioUrl}" length="${ep.audio_size_bytes}" type="audio/mpeg" />
       <itunes:explicit>no</itunes:explicit>
     </item>`;
     })
