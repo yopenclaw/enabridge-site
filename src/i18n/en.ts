@@ -25,6 +25,7 @@ export const en = {
     sectionCompany: "Company",
     sectionContact: "Contact",
     aboutLink: "About",
+    insightsLink: "Insights",
     rightsReserved: "All rights reserved.",
     location: "Bangkok, Thailand",
     youtubePrefix: "YouTube",
@@ -87,6 +88,14 @@ export const en = {
     whyEnabridge: {
       label: "Why Enabridge",
       title: "What makes us different.",
+    },
+    insights: {
+      label: "Insights",
+      title: "Daily AI Brief.",
+      description:
+        "Agentic AI news, real-world use cases, and OpenBridge-relevant trends — published every morning at 7 AM Bangkok time. Read it in five minutes or listen to the podcast.",
+      allLink: "All briefs",
+      cardLabel: "stories",
     },
   },
   whyEnabridge: [

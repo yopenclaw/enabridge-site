@@ -27,6 +27,7 @@ export const th: Dictionary = {
     sectionCompany: "บริษัท",
     sectionContact: "ติดต่อ",
     aboutLink: "เกี่ยวกับเรา",
+    insightsLink: "มุมมอง",
     rightsReserved: "สงวนลิขสิทธิ์",
     location: "กรุงเทพฯ ประเทศไทย",
     youtubePrefix: "YouTube",
@@ -89,6 +90,14 @@ export const th: Dictionary = {
     whyEnabridge: {
       label: "ทำไมต้อง Enabridge",
       title: "เราต่างจากคนอื่นอย่างไร",
+    },
+    insights: {
+      label: "มุมมอง",
+      title: "Daily AI Brief สรุปทุกเช้า",
+      description:
+        "ข่าว Agentic AI · use case จริง · เทรนด์ที่เกี่ยวกับ OpenBridge — โพสต์ทุกเช้า 7 โมง อ่านจบใน 5 นาที หรือจะฟัง podcast ก็ได้",
+      allLink: "ดูทั้งหมด",
+      cardLabel: "เรื่อง",
     },
   },
   whyEnabridge: [

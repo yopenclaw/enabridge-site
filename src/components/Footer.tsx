@@ -71,6 +71,12 @@ export default async function Footer() {
               >
                 {dict.footer.aboutLink}
               </Link>
+              <Link
+                href="/research"
+                className="text-sm text-text-muted transition hover:text-accent"
+              >
+                {dict.footer.insightsLink}
+              </Link>
             </div>
           </div>
           <div>
