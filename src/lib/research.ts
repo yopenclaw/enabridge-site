@@ -70,6 +70,27 @@ export async function fetchIndex(): Promise<Index | null> {
   }
 }
 
+// Manual frontmatter extraction for briefs whose YAML doesn't parse cleanly.
+// Pulls out only the simple single-line fields we render (image, slug, topic,
+// reading_time_min, sources) by matching `key: value` at the start of a line.
+// Multi-line / quoted values are intentionally not handled — those go through
+// the YAML path. The body strips the entire `---...---` block so it doesn't
+// leak into the rendered markdown as a Setext heading.
+const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
+const SIMPLE_FIELDS = ["date", "slug", "topic", "reading_time_min", "sources", "image"] as const;
+
+function manualParseBrief(raw: string): { data: Brief["frontmatter"]; content: string } {
+  const m = raw.match(FRONTMATTER_RE);
+  if (!m) return { data: {}, content: raw };
+  const fmBlock = m[1];
+  const data: Record<string, string> = {};
+  for (const field of SIMPLE_FIELDS) {
+    const line = fmBlock.match(new RegExp(`^${field}:[ \\t]*(.+)$`, "m"));
+    if (line) data[field] = line[1].trim();
+  }
+  return { data, content: raw.slice(m[0].length) };
+}
+
 export async function fetchBrief(filename: string): Promise<Brief | null> {
   try {
     const res = await fetch(`${RAW_BASE}/news/${filename}`, {
@@ -77,19 +98,50 @@ export async function fetchBrief(filename: string): Promise<Brief | null> {
     });
     if (!res.ok) return null;
     const raw = await res.text();
-    const parsed = matter(raw);
+
+    // gray-matter throws on malformed YAML (common when an LLM-generated
+    // image_prompt contains `word: "value"` patterns). It also has a caching
+    // quirk where the second call returns an empty `data` object with the
+    // raw frontmatter still embedded in `content` — that's the case where
+    // the YAML block was rendering as a Setext H2 in the body. Fall back to
+    // manual extraction for both.
+    let data: Brief["frontmatter"];
+    let content: string;
+    try {
+      const parsed = matter(raw);
+      const looksFailed =
+        Object.keys(parsed.data ?? {}).length === 0 &&
+        parsed.content.startsWith("---");
+      if (looksFailed) {
+        const manual = manualParseBrief(raw);
+        data = manual.data;
+        content = manual.content;
+      } else {
+        data = parsed.data;
+        content = parsed.content;
+      }
+    } catch (yamlErr) {
+      console.warn(
+        `[research] ${filename}: YAML parse failed, using manual fallback:`,
+        (yamlErr as Error).message,
+      );
+      const manual = manualParseBrief(raw);
+      data = manual.data;
+      content = manual.content;
+    }
+
     // Extract H1 as title
-    const titleMatch = parsed.content.match(/^#\s+(.+)$/m);
-    const title = titleMatch ? titleMatch[1].trim() : parsed.data.slug ?? filename;
+    const titleMatch = content.match(/^#\s+(.+)$/m);
+    const title = titleMatch ? titleMatch[1].trim() : data.slug ?? filename;
     // Strip the H1 from body so we render it separately
-    const body = parsed.content.replace(/^#\s+.+$/m, "").trim();
+    const body = content.replace(/^#\s+.+$/m, "").trim();
     // Also strip the "## Audio script" section — that's for TTS, not for display
     const displayBody = body.replace(
       /\n##\s*Audio script[\s\S]*$/m,
       "",
     ).trim();
     return {
-      frontmatter: parsed.data,
+      frontmatter: data,
       title,
       body: displayBody,
     };
